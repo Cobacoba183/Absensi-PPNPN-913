@@ -162,6 +162,7 @@ body {
 
     <div class="ab-stamp" id="ab-stamp">✓ Tercatat, tersimpan ke Google Sheets</div>
     <div class="ab-error" id="ab-submit-error"></div>
+    <div class="ab-loc-status" id="ab-radius-info" style="margin-bottom:12px;"></div>
 
     <button class="ab-btn ab-btn-primary ab-btn-full" id="ab-submit" type="button" disabled>Catat Kehadiran</button>
   </div>
@@ -199,6 +200,19 @@ body {
         <li>Klik link di kolom <strong>Foto</strong> untuk lihat foto bukti absen di Google Drive.</li>
         <li>Untuk rekap otomatis (misal total kehadiran per pegawai per bulan), buat <strong>Pivot table</strong> dari menu <strong>Insert → Pivot table</strong>.</li>
       </ul>
+
+      <h3>Untuk Admin — Atur Radius Kantor & Jam Kerja</h3>
+      <ol>
+        <li>Buka Apps Script, lihat bagian atas <code>Code.gs</code> yang bertuliskan <code>KONFIGURASI</code>.</li>
+        <li><strong>Matikan/hidupkan aturan terlambat:</strong> ubah <code>ENABLE_LATE_RULE</code> jadi <code>true</code> (aktif) atau <code>false</code> (nonaktif).</li>
+        <li><strong>Matikan/hidupkan pengecekan radius lokasi:</strong> ubah <code>ENABLE_GEOFENCE</code> jadi <code>true</code>/<code>false</code> dengan cara yang sama.</li>
+        <li><strong>Beberapa titik lokasi kerja:</strong> di <code>OFFICE_LOCATIONS</code>, setiap titik punya nama, lat, lng, dan radius sendiri. Absen dianggap sah kalau pegawai berada di dalam radius <em>salah satu</em> titik itu — cocok untuk kantor pusat, cabang, atau lokasi proyek yang berbeda-beda hari.</li>
+        <li>Untuk menambah titik baru, salin format baris yang sudah ada, contoh:<br><code>{ name: 'Lokasi Proyek B', lat: -8.5, lng: 117.4, radius: 200 }</code>, lalu pisahkan dengan koma dari titik sebelumnya.</li>
+        <li>Koordinat tiap titik: buka Google Maps, klik-tahan lokasi di peta, koordinat muncul di kotak pencarian bawah — salin ke sini.</li>
+        <li><code>REJECT_OUTSIDE_RADIUS</code>: isi <code>true</code> untuk menolak absen di luar semua radius, atau <code>false</code> kalau tetap ingin disimpan tapi hanya ditandai "Di Luar Area".</li>
+        <li>Setelah mengubah apa pun di sini, <strong>wajib Deploy ulang</strong> (Deploy → Manage deployments → pensil → New version → Deploy) agar berlaku.</li>
+      </ol>
+      <div class="ab-note">Di Sheets akan muncul kolom <strong>Status Lokasi</strong> yang menyebutkan nama titik kantor mana yang cocok (mis. "Sah — Kantor Cabang A"), jadi admin tahu pegawai absen di titik mana.</div>
 
       <h3>Catatan</h3>
       <ul>
@@ -329,13 +343,24 @@ body {
     };
 
     try {
-      // mode 'no-cors' dipakai karena keterbatasan CORS Apps Script,
-      // data tetap masuk ke Sheets walau respons tidak bisa dibaca browser.
-      await fetch(WEBAPP_URL, {
+      // Sengaja TIDAK memakai mode 'no-cors' dan TIDAK memasang header
+      // Content-Type manual, supaya request tetap dianggap "simple request"
+      // (menghindari preflight OPTIONS yang tidak didukung Apps Script)
+      // namun respons aslinya tetap bisa dibaca untuk mendeteksi sukses/gagal.
+      const res = await fetch(WEBAPP_URL, {
         method: 'POST',
-        mode: 'no-cors',
         body: JSON.stringify(payload)
       });
+      const result = await res.json();
+
+      if (result.status !== 'ok') {
+        throw new Error(result.message || 'Gagal menyimpan data di server.');
+      }
+
+      let info = '';
+      if (result.attendanceStatus) info += result.attendanceStatus;
+      if (result.locationStatus) info += (info ? ' · ' : '') + result.locationStatus;
+      document.getElementById('ab-radius-info').textContent = info;
 
       stamp.classList.remove('show');
       void stamp.offsetWidth;
@@ -346,7 +371,7 @@ body {
       currentPhoto = null;
       photoFrame.innerHTML = '<div class="ab-photo-placeholder">BELUM ADA FOTO</div>';
     } catch (err) {
-      submitError.textContent = 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
+      submitError.textContent = err.message || 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
       submitError.classList.add('show');
     } finally {
       submitBtn.textContent = 'Catat Kehadiran';
