@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistem Absensi Foto & Lokasi</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 20px 10px 60px;
+  background: #0B0E13;
+  min-height: 100vh;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+#absensi-root {
+  --ink: #171D26;
+  --ink-soft: #232B38;
+  --paper: #EFEAE0;
+  --paper-dim: #C9C2B2;
+  --signal: #E4572E;
+  --signal-dim: #7A2E19;
+  --steel: #3E7C8C;
+  --ok: #4C9A6B;
+  --font-display: 'Archivo Expanded', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 14px;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+}
+
+.ab-header { padding: 22px 22px 0; position: relative; }
+.ab-holes { position: absolute; top: 0; right: 22px; display: flex; gap: 8px; }
+.ab-hole { width: 10px; height: 10px; border-radius: 50%; background: var(--paper); margin-top: -5px; }
+.ab-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: var(--signal); text-transform: uppercase; }
+.ab-title { font-family: var(--font-display); font-weight: 800; font-size: 28px; letter-spacing: 0.5px; margin: 4px 0 2px; }
+.ab-clock { font-family: var(--font-mono); font-size: 13px; color: var(--paper-dim); margin-bottom: 16px; }
+
+.ab-tabs { display: flex; border-bottom: 1px dashed var(--paper-dim); }
+.ab-tab { flex: 1; background: none; border: none; color: var(--paper-dim); font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase; padding: 12px 6px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.ab-tab.active { color: var(--paper); border-bottom-color: var(--signal); }
+
+.ab-panel { display: none; padding: 20px 22px 24px; }
+.ab-panel.active { display: block; }
+
+.ab-field { margin-bottom: 14px; }
+.ab-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--paper-dim); display: block; margin-bottom: 6px; }
+.ab-input, .ab-select {
+  width: 100%; background: var(--ink-soft); border: 1px solid #384153; color: var(--paper);
+  padding: 11px 12px; border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; outline: none;
+}
+.ab-input:focus, .ab-select:focus { border-color: var(--signal); }
+
+.ab-badge { border: 1px solid #384153; border-radius: 12px; background: var(--ink-soft); padding: 16px; margin-bottom: 16px; }
+
+.ab-photo-row { display: flex; gap: 14px; align-items: center; }
+.ab-photo-frame {
+  width: 92px; height: 92px; border-radius: 8px; background: #0F141C; border: 2px solid var(--paper-dim);
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.ab-photo-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ab-photo-frame .ab-photo-placeholder { font-family: var(--font-mono); font-size: 9px; color: var(--paper-dim); text-align: center; padding: 6px; letter-spacing: 1px; }
+.ab-photo-actions { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.ab-photo-actions input[type=file] { display: none; }
+
+.ab-btn { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 1px; text-transform: uppercase; border: none; border-radius: 7px; padding: 11px 14px; cursor: pointer; transition: transform 0.08s ease, opacity 0.15s ease; }
+.ab-btn:active { transform: scale(0.97); }
+.ab-btn-primary { background: var(--signal); color: var(--paper); font-weight: 600; }
+.ab-btn-secondary { background: transparent; color: var(--paper); border: 1px solid #4A5468; }
+.ab-btn-steel { background: var(--steel); color: var(--paper); font-weight: 600; }
+.ab-btn-full { width: 100%; }
+.ab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ab-loc-status { font-family: var(--font-mono); font-size: 12px; color: var(--paper-dim); display: flex; align-items: center; gap: 8px; min-height: 18px; }
+.ab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--paper-dim); flex-shrink: 0; }
+.ab-dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.ab-dot.pending { background: var(--signal); animation: ab-pulse 1s infinite; }
+.ab-dot.err { background: #C64545; }
+@keyframes ab-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.ab-stamp {
+  display: none; border: 2px solid var(--ok); color: var(--ok); font-family: var(--font-display);
+  font-weight: 800; text-transform: uppercase; letter-spacing: 2px; text-align: center;
+  padding: 10px; border-radius: 8px; margin-bottom: 16px; transform: rotate(-2deg) scale(0.9); opacity: 0;
+}
+.ab-stamp.show { display: block; animation: ab-stampin 0.35s ease-out forwards; }
+@keyframes ab-stampin { 0% { opacity: 0; transform: rotate(-8deg) scale(1.4); } 60% { opacity: 1; transform: rotate(-2deg) scale(0.92); } 100% { opacity: 1; transform: rotate(-2deg) scale(1); } }
+
+.ab-error {
+  display: none; border: 1px solid #C64545; color: #E48A6E; font-family: var(--font-mono); font-size: 11.5px;
+  padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; background: rgba(198,69,69,0.08);
+}
+.ab-error.show { display: block; }
+
+.ab-guide { font-size: 13.5px; line-height: 1.65; }
+.ab-guide h3 { font-family: var(--font-display); font-size: 15px; color: var(--signal); margin: 18px 0 8px; letter-spacing: 0.3px; }
+.ab-guide h3:first-child { margin-top: 0; }
+.ab-guide ol, .ab-guide ul { padding-left: 20px; margin: 6px 0; }
+.ab-guide li { margin-bottom: 6px; }
+.ab-guide .ab-note { background: var(--ink-soft); border-left: 3px solid var(--steel); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--paper-dim); margin: 10px 0; }
+.ab-guide code { font-family: var(--font-mono); background: var(--ink-soft); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="absensi-root">
+  <div class="ab-header">
+    <div class="ab-holes"><div class="ab-hole"></div><div class="ab-hole"></div></div>
+    <div class="ab-eyebrow">Mesin Absen Digital</div>
+    <div class="ab-title">ABSENSI</div>
+    <div class="ab-clock" id="ab-clock">--:--:--</div>
+    <div class="ab-tabs">
+      <button class="ab-tab active" data-tab="pegawai">Absen</button>
+      <button class="ab-tab" data-tab="panduan">Panduan</button>
+    </div>
+  </div>
+
+  <div class="ab-panel active" id="panel-pegawai">
+    <div class="ab-error" id="ab-config-error">
+      Backend belum diatur. Admin perlu mengisi <code>WEBAPP_URL</code> di bagian atas file HTML ini terlebih dahulu (lihat tab Panduan).
+    </div>
+
+    <div class="ab-field">
+      <label class="ab-label">Nama Pegawai</label>
+      <input class="ab-input" id="ab-name" type="text" placeholder="Masukkan nama lengkap">
+    </div>
+
+    <div class="ab-field">
+      <label class="ab-label">Jenis Absen</label>
+      <select class="ab-select" id="ab-type">
+        <option value="Masuk">Masuk (Check-in)</option>
+        <option value="Pulang">Pulang (Check-out)</option>
+      </select>
+    </div>
+
+    <div class="ab-badge">
+      <label class="ab-label">Foto Bukti</label>
+      <div class="ab-photo-row">
+        <div class="ab-photo-frame" id="ab-photo-frame"><div class="ab-photo-placeholder">BELUM ADA FOTO</div></div>
+        <div class="ab-photo-actions">
+          <button class="ab-btn ab-btn-secondary" id="ab-photo-btn" type="button">📷 Ambil Foto</button>
+          <input type="file" id="ab-photo-input" accept="image/*" capture="user">
+        </div>
+      </div>
+    </div>
+
+    <div class="ab-badge">
+      <label class="ab-label">Lokasi</label>
+      <div class="ab-loc-status" id="ab-loc-status">
+        <span class="ab-dot" id="ab-loc-dot"></span>
+        <span id="ab-loc-text">Lokasi belum diambil</span>
+      </div>
+    </div>
+
+    <div class="ab-stamp" id="ab-stamp">✓ Tercatat, tersimpan ke Google Sheets</div>
+    <div class="ab-error" id="ab-submit-error"></div>
+
+    <button class="ab-btn ab-btn-primary ab-btn-full" id="ab-submit" type="button" disabled>Catat Kehadiran</button>
+  </div>
+
+  <div class="ab-panel" id="panel-panduan">
+    <div class="ab-guide">
+      <h3>Untuk Pegawai</h3>
+      <ol>
+        <li>Isi <strong>Nama Pegawai</strong> dengan nama lengkap yang sama tiap hari.</li>
+        <li>Pilih <strong>Masuk</strong> atau <strong>Pulang</strong>.</li>
+        <li>Tekan <strong>📷 Ambil Foto</strong> lalu izinkan kamera.</li>
+        <li>Tunggu titik lokasi jadi hijau, izinkan akses lokasi kalau diminta.</li>
+        <li>Tekan <strong>Catat Kehadiran</strong>. Data otomatis masuk ke Google Sheets milik admin.</li>
+      </ol>
+
+      <h3>Untuk Admin — Cara Setup (sekali saja)</h3>
+      <ol>
+        <li>Buka <a href="https://sheets.google.com" target="_blank" style="color:#3E7C8C;">Google Sheets</a>, buat spreadsheet baru, beri nama misalnya "Data Absensi".</li>
+        <li>Buka menu <strong>Extensions → Apps Script</strong> (Ekstensi → Apps Script).</li>
+        <li>Hapus kode default, lalu tempel isi file <code>Code.gs</code> yang sudah disiapkan.</li>
+        <li>Klik <strong>Deploy → New deployment</strong>. Pilih tipe <strong>Web app</strong>.</li>
+        <li>Isi: <em>Execute as</em> = Me, <em>Who has access</em> = Anyone. Klik <strong>Deploy</strong>.</li>
+        <li>Izinkan akses (Authorize access) saat diminta Google — ini akun Google Anda sendiri, aman.</li>
+        <li>Salin <strong>Web app URL</strong> yang muncul (bentuknya seperti <code>https://script.google.com/macros/s/xxxxx/exec</code>).</li>
+        <li>Buka file HTML ini di editor teks, cari baris <code>const WEBAPP_URL = "..."</code> di bagian paling atas <code>&lt;script&gt;</code>, tempel URL tadi di antara tanda kutip.</li>
+        <li>Simpan file, lalu bagikan file HTML ini ke semua pegawai (lewat WhatsApp/email/host di GitHub Pages/dsb).</li>
+      </ol>
+      <div class="ab-note">Setiap kali ada yang absen, satu baris baru otomatis muncul di sheet "Absensi": nama, jenis, tanggal, jam, koordinat, link peta, dan link foto ke Google Drive.</div>
+
+      <h3>Untuk Admin — Cara Melihat Rekap</h3>
+      <ul>
+        <li>Buka spreadsheet "Data Absensi" kapan saja — datanya real-time, tidak perlu refresh apa pun di HTML.</li>
+        <li>Gunakan menu <strong>Data → Create a filter</strong> untuk menyaring per nama/tanggal/jenis.</li>
+        <li>Klik link di kolom <strong>Link Peta</strong> untuk buka lokasi absen di Google Maps.</li>
+        <li>Klik link di kolom <strong>Foto</strong> untuk lihat foto bukti absen di Google Drive.</li>
+        <li>Untuk rekap otomatis (misal total kehadiran per pegawai per bulan), buat <strong>Pivot table</strong> dari menu <strong>Insert → Pivot table</strong>.</li>
+      </ul>
+
+      <h3>Catatan</h3>
+      <ul>
+        <li>Halaman absen ini <strong>tidak butuh akun Claude sama sekali</strong> — bisa dibuka siapa saja lewat link/file HTML ini.</li>
+        <li>Karena backend-nya Google Apps Script milik admin sendiri, kapasitasnya sesuai kuota Google Drive/Sheets akun admin (biasanya sangat cukup untuk absensi tim kecil-menengah).</li>
+        <li>Untuk fitur lokasi, halaman ini perlu diakses lewat <strong>https://</strong> (bukan dibuka sebagai file lokal) — hosting gratis seperti GitHub Pages, atau publish sebagai Claude artifact (tanpa storage, jadi tidak akan minta login), sudah cukup.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ======== ISI URL WEB APP APPS SCRIPT ANDA DI SINI ========
+  const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzI_fqU4TeXxhsZk2DXfmfscpwnuSECq9eUuBoZhObc_055mkGXgPNwBQGeSZPVnHI/exec";
+  // Contoh: const WEBAPP_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+  // ============================================================
+
+  const nameInput = document.getElementById('ab-name');
+  const typeSelect = document.getElementById('ab-type');
+  const photoBtn = document.getElementById('ab-photo-btn');
+  const photoInput = document.getElementById('ab-photo-input');
+  const photoFrame = document.getElementById('ab-photo-frame');
+  const locDot = document.getElementById('ab-loc-dot');
+  const locText = document.getElementById('ab-loc-text');
+  const submitBtn = document.getElementById('ab-submit');
+  const stamp = document.getElementById('ab-stamp');
+  const submitError = document.getElementById('ab-submit-error');
+  const configError = document.getElementById('ab-config-error');
+  const clockEl = document.getElementById('ab-clock');
+  const tabs = document.querySelectorAll('.ab-tab');
+  const panels = { pegawai: document.getElementById('panel-pegawai'), panduan: document.getElementById('panel-panduan') };
+
+  let currentPhoto = null;
+  let currentLoc = null;
+
+  if (!WEBAPP_URL || WEBAPP_URL.indexOf('PASTE_URL') === 0) {
+    configError.classList.add('show');
+  }
+
+  function tickClock() {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleString('id-ID', {
+      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      Object.values(panels).forEach(p => p.classList.remove('active'));
+      panels[tab.dataset.tab].classList.add('active');
+    });
+  });
+
+  function checkReady() {
+    const configured = WEBAPP_URL && WEBAPP_URL.indexOf('PASTE_URL') !== 0;
+    submitBtn.disabled = !(configured && nameInput.value.trim() && currentPhoto && currentLoc);
+  }
+  nameInput.addEventListener('input', checkReady);
+
+  photoBtn.addEventListener('click', () => photoInput.click());
+
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 300;
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        currentPhoto = canvas.toDataURL('image/jpeg', 0.6);
+        photoFrame.innerHTML = '<img src="' + currentPhoto + '" alt="foto">';
+        checkReady();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      locDot.className = 'ab-dot err';
+      locText.textContent = 'Geolokasi tidak didukung perangkat ini';
+      return;
+    }
+    locDot.className = 'ab-dot pending';
+    locText.textContent = 'Mengambil lokasi...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        currentLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+        locDot.className = 'ab-dot ok';
+        locText.textContent = currentLoc.lat.toFixed(5) + ', ' + currentLoc.lng.toFixed(5) + ' (±' + currentLoc.acc + 'm)';
+        checkReady();
+      },
+      (err) => {
+        locDot.className = 'ab-dot err';
+        locText.textContent = 'Gagal ambil lokasi: ' + (err.message || 'izin ditolak');
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  }
+  requestLocation();
+
+  submitBtn.addEventListener('click', async () => {
+    if (!(nameInput.value.trim() && currentPhoto && currentLoc)) return;
+    submitError.classList.remove('show');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Mengirim...';
+
+    const payload = {
+      name: nameInput.value.trim(),
+      type: typeSelect.value,
+      photo: currentPhoto,
+      lat: currentLoc.lat,
+      lng: currentLoc.lng,
+      acc: currentLoc.acc
+    };
+
+    try {
+      // mode 'no-cors' dipakai karena keterbatasan CORS Apps Script,
+      // data tetap masuk ke Sheets walau respons tidak bisa dibaca browser.
+      await fetch(WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify(payload)
+      });
+
+      stamp.classList.remove('show');
+      void stamp.offsetWidth;
+      stamp.classList.add('show');
+      setTimeout(() => stamp.classList.remove('show'), 2200);
+
+      photoInput.value = '';
+      currentPhoto = null;
+      photoFrame.innerHTML = '<div class="ab-photo-placeholder">BELUM ADA FOTO</div>';
+    } catch (err) {
+      submitError.textContent = 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
+      submitError.classList.add('show');
+    } finally {
+      submitBtn.textContent = 'Catat Kehadiran';
+      checkReady();
+    }
+  });
+})();
+</script>
+</body>
+</html>
