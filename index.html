@@ -107,6 +107,16 @@ body {
 .ab-guide li { margin-bottom: 6px; }
 .ab-guide .ab-note { background: var(--ink-soft); border-left: 3px solid var(--steel); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--paper-dim); margin: 10px 0; }
 .ab-guide code { font-family: var(--font-mono); background: var(--ink-soft); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+.ab-footer {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--paper-dim);
+  padding: 14px 22px 20px;
+  border-top: 1px dashed #384153;
+}
 </style>
 </head>
 <body>
@@ -134,14 +144,40 @@ body {
     </div>
 
     <div class="ab-field">
-      <label class="ab-label">Jenis Absen</label>
-      <select class="ab-select" id="ab-type">
-        <option value="Masuk">Masuk (Check-in)</option>
-        <option value="Pulang">Pulang (Check-out)</option>
+      <label class="ab-label">Role Pegawai</label>
+      <select class="ab-select" id="ab-role">
+        <option value="CS">CS</option>
+        <option value="Satpam">Satpam</option>
       </select>
     </div>
 
-    <div class="ab-badge">
+    <div class="ab-field" id="ab-shift-field" style="display:none;">
+      <label class="ab-label">Shift</label>
+      <select class="ab-select" id="ab-shift">
+        <option value="Satpam Perempuan">Pagi (07:00 - 18:00)</option>
+        <option value="Pagi">Pagi (07:00 - 19:00)</option>
+        <option value="Malam">Malam (19:00 - 07:00)</option>
+        <option value="Rumah Dinas">Malam (20:00 - 07:00)</option>
+      </select>
+    </div>
+
+    <div class="ab-field">
+      <label class="ab-label">Jenis Absen</label>
+      <select class="ab-select" id="ab-type">
+        <option value="Masuk">Masuk (Check-in)</option>
+        <option value="Istirahat">Istirahat (Mulai)</option>
+        <option value="Kembali">Kembali dari Istirahat</option>
+        <option value="Pulang">Pulang (Check-out)</option>
+        <option value="Cuti">Cuti</option>
+      </select>
+    </div>
+
+    <div class="ab-field" id="ab-reason-field" style="display:none;">
+      <label class="ab-label">Keterangan Cuti (opsional)</label>
+      <input class="ab-input" id="ab-reason" type="text" placeholder="mis. Cuti tahunan, sakit, dsb.">
+    </div>
+
+    <div class="ab-badge" id="ab-photo-block">
       <label class="ab-label">Foto Bukti</label>
       <div class="ab-photo-row">
         <div class="ab-photo-frame" id="ab-photo-frame"><div class="ab-photo-placeholder">BELUM ADA FOTO</div></div>
@@ -152,7 +188,7 @@ body {
       </div>
     </div>
 
-    <div class="ab-badge">
+    <div class="ab-badge" id="ab-loc-block">
       <label class="ab-label">Lokasi</label>
       <div class="ab-loc-status" id="ab-loc-status">
         <span class="ab-dot" id="ab-loc-dot"></span>
@@ -172,9 +208,10 @@ body {
       <h3>Untuk Pegawai</h3>
       <ol>
         <li>Isi <strong>Nama Pegawai</strong> dengan nama lengkap yang sama tiap hari.</li>
-        <li>Pilih <strong>Masuk</strong> atau <strong>Pulang</strong>.</li>
-        <li>Tekan <strong>📷 Ambil Foto</strong> lalu izinkan kamera.</li>
-        <li>Tunggu titik lokasi jadi hijau, izinkan akses lokasi kalau diminta.</li>
+        <li>Pilih <strong>Role</strong>: CS atau Satpam. Kalau memilih Satpam, akan muncul pilihan <strong>Shift</strong> (Pagi/Malam) — pilih sesuai jadwal hari itu.</li>
+        <li>Pilih <strong>Masuk</strong>, <strong>Istirahat</strong>, <strong>Kembali dari Istirahat</strong>, <strong>Pulang</strong>, atau <strong>Cuti</strong>.</li>
+        <li>Untuk <strong>Cuti</strong>: cukup isi nama dan keterangan (opsional), foto dan lokasi tidak diperlukan.</li>
+        <li>Untuk jenis lainnya: tekan <strong>📷 Ambil Foto</strong> lalu izinkan kamera, tunggu titik lokasi jadi hijau, izinkan akses lokasi kalau diminta.</li>
         <li>Tekan <strong>Catat Kehadiran</strong>. Data otomatis masuk ke Google Sheets milik admin.</li>
       </ol>
 
@@ -201,6 +238,19 @@ body {
         <li>Untuk rekap otomatis (misal total kehadiran per pegawai per bulan), buat <strong>Pivot table</strong> dari menu <strong>Insert → Pivot table</strong>.</li>
       </ul>
 
+      <h3>Untuk Admin — Atur Jam Kerja per Role</h3>
+      <ol>
+        <li>Buka Apps Script, lihat blok <code>ROLE_SCHEDULES</code> di bagian KONFIGURASI paling atas <code>Code.gs</code>.</li>
+        <li><strong>CS</strong> pakai jadwal tetap (<code>type: 'fixed'</code>): jam masuk dan pulang sama setiap hari — ubah <code>startHour/startMinute</code> (masuk) dan <code>endHour/endMinute</code> (pulang) sesuai kebutuhan.</li>
+        <li><strong>Satpam</strong> pakai jadwal shift (<code>type: 'shift'</code>): ada sub-blok <code>Pagi</code> dan <code>Malam</code>, masing-masing punya jam mulai & selesai sendiri.</li>
+        <li><strong>Menambah role baru</strong> (mis. "Admin Kantor"): salin salah satu blok CS/Satpam di dalam <code>ROLE_SCHEDULES</code>, ganti nama key-nya, atur jamnya. Lalu buka file HTML ini, cari <code>id="ab-role"</code>, tambahkan baris <code>&lt;option value="Admin Kantor"&gt;Admin Kantor&lt;/option&gt;</code> di dalamnya — namanya harus PERSIS SAMA antara Code.gs dan HTML.</li>
+        <li><strong>Menambah shift baru</strong> untuk role yang sudah pakai shift: tambah sub-blok baru di dalam <code>shifts: {...}</code>, lalu tambahkan juga <code>&lt;option&gt;</code> baru di <code>id="ab-shift"</code> pada file HTML dengan value yang sama persis.</li>
+        <li><code>ENABLE_LATE_RULE</code> dan <code>ENABLE_EARLY_LEAVE_RULE</code>: nyala/matikan aturan terlambat dan pulang cepat secara terpisah.</li>
+        <li><code>TOLERANCE_MINUTES</code> dan <code>EARLY_LEAVE_TOLERANCE_MINUTES</code>: toleransi menit yang berlaku umum. Kalau mau toleransi khusus untuk satu role/shift saja, tambahkan <code>toleranceMinutes: 10</code> atau <code>earlyLeaveToleranceMinutes: 10</code> di dalam blok role/shift itu — ini akan menimpa nilai umum.</li>
+        <li>Setelah mengubah apa pun, <strong>wajib Deploy ulang</strong> (Deploy → Manage deployments → pensil → New version → Deploy).</li>
+      </ol>
+      <div class="ab-note">Shift "Malam" (19:00–07:00) otomatis dihitung melewati tengah malam — kalau Satpam pulang jam 06:50 pagi, itu dianggap "Pulang Cepat"; kalau jam 07:10, dianggap "Tepat Waktu" (sesuai toleransi).</div>
+
       <h3>Untuk Admin — Atur Radius Kantor & Jam Kerja</h3>
       <ol>
         <li>Buka Apps Script, lihat bagian atas <code>Code.gs</code> yang bertuliskan <code>KONFIGURASI</code>.</li>
@@ -217,11 +267,14 @@ body {
       <h3>Catatan</h3>
       <ul>
         <li>Halaman absen ini <strong>tidak butuh akun Claude sama sekali</strong> — bisa dibuka siapa saja lewat link/file HTML ini.</li>
+        <li>Untuk mengganti tulisan kredit di bagian bawah aplikasi (mis. nama admin/pembuat), cari <code>CREATED_BY</code> di bagian atas <code>&lt;script&gt;</code> file HTML ini, ganti teksnya, atau kosongkan <code>""</code> untuk menyembunyikannya.</li>
         <li>Karena backend-nya Google Apps Script milik admin sendiri, kapasitasnya sesuai kuota Google Drive/Sheets akun admin (biasanya sangat cukup untuk absensi tim kecil-menengah).</li>
         <li>Untuk fitur lokasi, halaman ini perlu diakses lewat <strong>https://</strong> (bukan dibuka sebagai file lokal) — hosting gratis seperti GitHub Pages, atau publish sebagai Claude artifact (tanpa storage, jadi tidak akan minta login), sudah cukup.</li>
       </ul>
     </div>
   </div>
+
+  <div class="ab-footer" id="ab-footer"></div>
 </div>
 
 <script>
@@ -231,8 +284,19 @@ body {
   // Contoh: const WEBAPP_URL = "https://script.google.com/macros/s/AKfycb.../exec";
   // ============================================================
 
+  // ======== TAG NAMA PEMBUAT / PENGELOLA SISTEM (opsional) ========
+  const CREATED_BY = "Dikelola oleh Bagus Maulana Lahuti"; // ganti sesuai keinginan, kosongkan "" untuk sembunyikan
+  // ==================================================================
+
   const nameInput = document.getElementById('ab-name');
+  const roleSelect = document.getElementById('ab-role');
+  const shiftField = document.getElementById('ab-shift-field');
+  const shiftSelect = document.getElementById('ab-shift');
   const typeSelect = document.getElementById('ab-type');
+  const reasonField = document.getElementById('ab-reason-field');
+  const reasonInput = document.getElementById('ab-reason');
+  const photoBlock = document.getElementById('ab-photo-block');
+  const locBlock = document.getElementById('ab-loc-block');
   const photoBtn = document.getElementById('ab-photo-btn');
   const photoInput = document.getElementById('ab-photo-input');
   const photoFrame = document.getElementById('ab-photo-frame');
@@ -251,6 +315,13 @@ body {
 
   if (!WEBAPP_URL || WEBAPP_URL.indexOf('PASTE_URL') === 0) {
     configError.classList.add('show');
+  }
+
+  const footerEl = document.getElementById('ab-footer');
+  if (CREATED_BY) {
+    footerEl.textContent = CREATED_BY;
+  } else {
+    footerEl.style.display = 'none';
   }
 
   function tickClock() {
@@ -272,11 +343,28 @@ body {
     });
   });
 
+  function updateFormVisibility() {
+    shiftField.style.display = (roleSelect.value === 'Satpam') ? 'block' : 'none';
+    const isCuti = (typeSelect.value === 'Cuti');
+    reasonField.style.display = isCuti ? 'block' : 'none';
+    photoBlock.style.display = isCuti ? 'none' : 'block';
+    locBlock.style.display = isCuti ? 'none' : 'block';
+    checkReady();
+  }
+  roleSelect.addEventListener('change', updateFormVisibility);
+  typeSelect.addEventListener('change', updateFormVisibility);
+
   function checkReady() {
     const configured = WEBAPP_URL && WEBAPP_URL.indexOf('PASTE_URL') !== 0;
-    submitBtn.disabled = !(configured && nameInput.value.trim() && currentPhoto && currentLoc);
+    const isCuti = (typeSelect.value === 'Cuti');
+    if (isCuti) {
+      submitBtn.disabled = !(configured && nameInput.value.trim());
+    } else {
+      submitBtn.disabled = !(configured && nameInput.value.trim() && currentPhoto && currentLoc);
+    }
   }
   nameInput.addEventListener('input', checkReady);
+  updateFormVisibility();
 
   photoBtn.addEventListener('click', () => photoInput.click());
 
@@ -328,18 +416,25 @@ body {
   requestLocation();
 
   submitBtn.addEventListener('click', async () => {
-    if (!(nameInput.value.trim() && currentPhoto && currentLoc)) return;
+    const isCuti = (typeSelect.value === 'Cuti');
+    const nameOk = nameInput.value.trim();
+    if (!nameOk) return;
+    if (!isCuti && !(currentPhoto && currentLoc)) return;
+
     submitError.classList.remove('show');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Mengirim...';
 
     const payload = {
       name: nameInput.value.trim(),
+      role: roleSelect.value,
+      shift: (roleSelect.value === 'Satpam') ? shiftSelect.value : '',
       type: typeSelect.value,
-      photo: currentPhoto,
-      lat: currentLoc.lat,
-      lng: currentLoc.lng,
-      acc: currentLoc.acc
+      reason: isCuti ? reasonInput.value.trim() : '',
+      photo: isCuti ? null : currentPhoto,
+      lat: isCuti ? null : (currentLoc ? currentLoc.lat : null),
+      lng: isCuti ? null : (currentLoc ? currentLoc.lng : null),
+      acc: isCuti ? null : (currentLoc ? currentLoc.acc : null)
     };
 
     try {
@@ -369,6 +464,7 @@ body {
 
       photoInput.value = '';
       currentPhoto = null;
+      reasonInput.value = '';
       photoFrame.innerHTML = '<div class="ab-photo-placeholder">BELUM ADA FOTO</div>';
     } catch (err) {
       submitError.textContent = err.message || 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
