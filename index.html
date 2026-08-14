@@ -208,7 +208,7 @@ body {
       <h3>Untuk Pegawai</h3>
       <ol>
         <li>Isi <strong>Nama Pegawai</strong> dengan nama lengkap yang sama tiap hari.</li>
-        <li>Pilih <strong>Role</strong>: CS atau Satpam. Kalau memilih Satpam, akan muncul pilihan <strong>Shift</strong> (Pagi/Malam) — pilih sesuai jadwal hari itu.</li>
+        <li>Pilih <strong>Role</strong>: CS atau Satpam. Kalau memilih Satpam, akan muncul pilihan <strong>Shift</strong> — pilih sesuai jadwal hari itu.</li>
         <li>Pilih <strong>Masuk</strong>, <strong>Istirahat</strong>, <strong>Kembali dari Istirahat</strong>, <strong>Pulang</strong>, atau <strong>Cuti</strong>.</li>
         <li>Untuk <strong>Cuti</strong>: cukup isi nama dan keterangan (opsional), foto dan lokasi tidak diperlukan.</li>
         <li>Untuk jenis lainnya: tekan <strong>📷 Ambil Foto</strong> lalu izinkan kamera, tunggu titik lokasi jadi hijau, izinkan akses lokasi kalau diminta.</li>
@@ -242,14 +242,14 @@ body {
       <ol>
         <li>Buka Apps Script, lihat blok <code>ROLE_SCHEDULES</code> di bagian KONFIGURASI paling atas <code>Code.gs</code>.</li>
         <li><strong>CS</strong> pakai jadwal tetap (<code>type: 'fixed'</code>): jam masuk dan pulang sama setiap hari — ubah <code>startHour/startMinute</code> (masuk) dan <code>endHour/endMinute</code> (pulang) sesuai kebutuhan.</li>
-        <li><strong>Satpam</strong> pakai jadwal shift (<code>type: 'shift'</code>): ada sub-blok <code>Pagi</code> dan <code>Malam</code>, masing-masing punya jam mulai & selesai sendiri.</li>
+        <li><strong>Satpam</strong> pakai jadwal shift (<code>type: 'shift'</code>): ada beberapa sub-blok shift, masing-masing punya jam mulai & selesai sendiri.</li>
         <li><strong>Menambah role baru</strong> (mis. "Admin Kantor"): salin salah satu blok CS/Satpam di dalam <code>ROLE_SCHEDULES</code>, ganti nama key-nya, atur jamnya. Lalu buka file HTML ini, cari <code>id="ab-role"</code>, tambahkan baris <code>&lt;option value="Admin Kantor"&gt;Admin Kantor&lt;/option&gt;</code> di dalamnya — namanya harus PERSIS SAMA antara Code.gs dan HTML.</li>
         <li><strong>Menambah shift baru</strong> untuk role yang sudah pakai shift: tambah sub-blok baru di dalam <code>shifts: {...}</code>, lalu tambahkan juga <code>&lt;option&gt;</code> baru di <code>id="ab-shift"</code> pada file HTML dengan value yang sama persis.</li>
         <li><code>ENABLE_LATE_RULE</code> dan <code>ENABLE_EARLY_LEAVE_RULE</code>: nyala/matikan aturan terlambat dan pulang cepat secara terpisah.</li>
-        <li><code>TOLERANCE_MINUTES</code> dan <code>EARLY_LEAVE_TOLERANCE_MINUTES</code>: toleransi menit yang berlaku umum. Kalau mau toleransi khusus untuk satu role/shift saja, tambahkan <code>toleranceMinutes: 10</code> atau <code>earlyLeaveToleranceMinutes: 10</code> di dalam blok role/shift itu — ini akan menimpa nilai umum.</li>
+        <li><code>TOLERANCE_MINUTES</code> dan <code>EARLY_LEAVE_TOLERANCE_MINUTES</code>: toleransi menit yang berlaku umum. Kalau mau toleransi khusus untuk satu role/shift saja, tambahkan <code>toleranceMinutes: 10</code> atau <code>earlyLeaveToleranceMinutes: 10</code> di dalam blok role/shift itu — ini akan menimpa nilai umum. <strong>Perubahan toleransi cukup di Code.gs saja, tidak perlu ubah HTML.</strong></li>
         <li>Setelah mengubah apa pun, <strong>wajib Deploy ulang</strong> (Deploy → Manage deployments → pensil → New version → Deploy).</li>
       </ol>
-      <div class="ab-note">Shift "Malam" (19:00–07:00) otomatis dihitung melewati tengah malam — kalau Satpam pulang jam 06:50 pagi, itu dianggap "Pulang Cepat"; kalau jam 07:10, dianggap "Tepat Waktu" (sesuai toleransi).</div>
+      <div class="ab-note">Shift yang melewati tengah malam (mis. 19:00–07:00) otomatis dihitung menyeberang hari — kalau pulang sebelum jam akhir shift, dianggap "Pulang Cepat"; kalau setelahnya (sesuai toleransi), dianggap "Tepat Waktu".</div>
 
       <h3>Untuk Admin — Atur Radius Kantor & Jam Kerja</h3>
       <ol>
@@ -270,6 +270,7 @@ body {
         <li>Untuk mengganti tulisan kredit di bagian bawah aplikasi (mis. nama admin/pembuat), cari <code>CREATED_BY</code> di bagian atas <code>&lt;script&gt;</code> file HTML ini, ganti teksnya, atau kosongkan <code>""</code> untuk menyembunyikannya.</li>
         <li>Karena backend-nya Google Apps Script milik admin sendiri, kapasitasnya sesuai kuota Google Drive/Sheets akun admin (biasanya sangat cukup untuk absensi tim kecil-menengah).</li>
         <li>Untuk fitur lokasi, halaman ini perlu diakses lewat <strong>https://</strong> (bukan dibuka sebagai file lokal) — hosting gratis seperti GitHub Pages, atau publish sebagai Claude artifact (tanpa storage, jadi tidak akan minta login), sudah cukup.</li>
+        <li>Kalau muncul notifikasi "respon server tidak terbaca" tapi data ternyata tetap masuk ke Sheets — itu wajar terjadi di koneksi lambat, karena data disimpan di server SEBELUM jawabannya dikirim balik ke HP. Sebaiknya buka link lewat Safari/Chrome langsung, bukan browser dalam-aplikasi (mis. browser bawaan WhatsApp/GitHub app).</li>
       </ul>
     </div>
   </div>
@@ -442,11 +443,38 @@ body {
       // Content-Type manual, supaya request tetap dianggap "simple request"
       // (menghindari preflight OPTIONS yang tidak didukung Apps Script)
       // namun respons aslinya tetap bisa dibaca untuk mendeteksi sukses/gagal.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(WEBAPP_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
-      const result = await res.json();
+      clearTimeout(timeoutId);
+
+      // Baca sebagai teks dulu, baru coba parse JSON secara terpisah.
+      // Kalau Apps Script SUDAH menyimpan data tapi jawabannya rusak/terpotong
+      // di jalan (koneksi lambat), kita tidak ingin menakut-nakuti pegawai
+      // dengan pesan error mentah — cukup beri tahu untuk cek Sheets.
+      const rawText = await res.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (parseErr) {
+        stamp.textContent = '⚠ Terkirim, tapi respon server tidak terbaca — cek Sheets untuk pastikan';
+        stamp.classList.remove('show');
+        void stamp.offsetWidth;
+        stamp.classList.add('show');
+        setTimeout(() => { stamp.classList.remove('show'); stamp.textContent = '✓ Tercatat, tersimpan ke Google Sheets'; }, 3500);
+
+        photoInput.value = '';
+        currentPhoto = null;
+        reasonInput.value = '';
+        photoFrame.innerHTML = '<div class="ab-photo-placeholder">BELUM ADA FOTO</div>';
+        submitBtn.textContent = 'Catat Kehadiran';
+        checkReady();
+        return;
+      }
 
       if (result.status !== 'ok') {
         throw new Error(result.message || 'Gagal menyimpan data di server.');
@@ -467,7 +495,11 @@ body {
       reasonInput.value = '';
       photoFrame.innerHTML = '<div class="ab-photo-placeholder">BELUM ADA FOTO</div>';
     } catch (err) {
-      submitError.textContent = err.message || 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
+      if (err.name === 'AbortError') {
+        submitError.textContent = 'Koneksi sangat lambat (lebih dari 25 detik) — kemungkinan data tetap tersimpan, cek Sheets untuk memastikan.';
+      } else {
+        submitError.textContent = err.message || 'Gagal mengirim data: periksa koneksi internet, lalu coba lagi.';
+      }
       submitError.classList.add('show');
     } finally {
       submitBtn.textContent = 'Catat Kehadiran';
